@@ -1,0 +1,17 @@
+[tools]
+java = "temurin-17.0.20+8"
+
+[tasks.build]
+run = "./gradlew :papelzinho:assembleDebug"
+
+[tasks.test]
+run = "./gradlew :papelzinho:testDebugUnitTest"
+
+[tasks.lint]
+run = "./gradlew :papelzinho:lintDebug :papelzinho:ktlintCheck :papelzinho:detekt"
+
+[tasks.verify]
+depends = ["test", "lint", "build"]
+
+[tasks.instrumented]
+run = "./gradlew :papelzinho:connectedDebugAndroidTest"

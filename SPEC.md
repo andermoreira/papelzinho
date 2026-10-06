@@ -35,7 +35,7 @@ App Android pessoal que faz o fluxo inteiro, sem passos manuais além de escreve
 
 - **I1.** O app **nunca envia** uma imagem sem ter confirmado que a visualização única está ativa. Na dúvida, aborta.
 - **I2.** O app **nunca grava** a imagem nem o texto em disco: nenhum arquivo em `filesDir`, `cacheDir`, armazenamento externo, `DataStore` ou banco.
-- **I3.** Depois que a sessão termina, a URI da imagem **não pode mais ser lida** por ninguém.
+- **I3.** Depois que a sessão termina, **nenhuma nova abertura da URI da imagem pode funcionar**. Descritores e cópias já entregues ao WhatsApp ficam fora do controle do app.
 - **I4.** Sem sessão armada, o serviço de acessibilidade **não faz nada**.
 - **I5.** O APK **não declara** a permissão `INTERNET`.
 
@@ -61,6 +61,7 @@ Consequências assumidas:
 - Zerar o `ByteArray` não garante que não existam cópias transitórias feitas pelo runtime (buffers internos do `Bitmap.compress`, cópias do GC). Essas cópias ficam só em RAM e são liberadas com o tempo.
 
 **Fora do controle do app:**
+- Um `memfd` já entregue continua acessível enquanto o destinatário mantiver seu descritor aberto. Revogar a URI impede novas aberturas, mas não invalida descritores existentes. Esclarecimento de I3 aprovado em 2026-10-05.
 - O WhatsApp do remetente lê os bytes e faz a própria cópia para criptografar e enviar. O tempo de vida dessa cópia é decisão do WhatsApp.
 
 ## 4. Stack
@@ -392,3 +393,36 @@ Perfis de trabalho e apps clonados, se necessário.
 - Qualquer automação fora da tela de prévia de mídia (ler mensagens, navegar em conversas etc.).
 - Controlar a cópia que o WhatsApp faz da imagem (seção 3).
 - Substituir o recurso nativo de texto em visualização única, caso o WhatsApp o lance; nesse caso, reavaliar o projeto.
+
+## Registro de implementação — 2026-10-05
+
+A fase 1 possui estrutura Android, componentes em memória, UI, compartilhamento,
+serviço e testes implementados. Recibo: [docs/validation.md](docs/validation.md).
+Os checks automatizados executados passaram; o aceite completo da fase 1 continua
+pendente da matriz manual e das fixtures de idiomas/pacotes ainda não capturados.
+
+### Experimento autorizado de colagem assistida
+
+O teste real do ACTION_SEND na versão 2.26.38.73 abriu um seletor com prévia
+inline sem visualização única, contrariando a premissa da seção 5.2.
+Colar a URI da imagem em memória abriu o editor com o botão “1”; as duas fixtures
+foram capturadas. Evidência: [docs/whatsapp-apk-validation.md](docs/whatsapp-apk-validation.md).
+
+A pessoa autorizou integrar o envio após colagem manual. Há um botão explícito
+para copiar a imagem de exemplo e armar uma sessão de envio, separado do diagnóstico
+sem automação. O serviço usa o perfil de colagem e espera uma abertura da URI pelo
+UID do pacote alvo ou pelo teclado atualmente selecionado. Quando a leitura é
+intermediada pelo teclado, também exige observar o pacote alvo fora de uma prévia
+antes de reconhecer a nova prévia. Confirma visualização única ativa e só então envia. O usuário
+ainda precisa abrir a conversa e colar. Isso é um experimento adicional; não satisfaz
+o aceite original de apenas escolher a conversa. Navegação e colagem automáticas
+continuam fora de escopo. I1–I5 permanecem obrigatórias.
+
+Nesse experimento, o teclado é outro consumidor externo dos bytes. Suas cópias,
+como as do WhatsApp, ficam fora do controle e da garantia de memória do Papelzinho.
+
+O envio assistido da imagem de exemplo foi validado em WhatsApp 2.26.38.73,
+Android 14, pt-BR: os logs confirmam ativação/verificação antes de Enviar e liberação
+após saída da prévia; a pessoa confirmou recebimento como foto de visualização única.
+Isso valida esse fluxo experimental nesta configuração, mantendo pendentes o aceite
+original e os demais cenários da matriz manual.
